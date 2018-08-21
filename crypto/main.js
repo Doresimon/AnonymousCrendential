@@ -38,7 +38,9 @@ const func = {
 const curve = 'BN254'
 const ctx = new CTX(curve);   // set curve
 const PAIR = ctx.PAIR;        // Set pairing interface
+const ECP = ctx.ECP;        // Set pairing interface
 const ECP2 = ctx.ECP2;        // Set pairing interface
+const BIG = ctx.BIG;        // Set pairing interface
 const rng = new ctx.RAND();   //new random number generator
 
 const g1 = func.get_g1(ctx)       // g1
@@ -165,6 +167,61 @@ let Issuer = {
         this.isk = isk
         this.ipk = ipk
     },
+    VerifyPi(Nym, pi, n){
+        let C = new BIG(0)
+        C.copy(pi.C)
+        // let _t1 = h_sk^S * Nym^(-C)
+        let _t1 = new ctx.ECP()
+        _t1 = PAIR.G1mul(this.ipk.h_sk, pi.S)
+        _t1.add(PAIR.G1mul(Nym, BIG.modneg(C, order)))
+
+        console.log("[Issuer] _t1: ", _t1.toString())
+
+        let _C = hashToBN(_t1, this.ipk.h_sk, Nym, n)
+
+        console.log("[Issuer] _t1: ", _t1.toString())
+        console.log("[Issuer] this.ipk.h_sk: ", this.ipk.h_sk.toString())
+        console.log("[Issuer] Nym: ", Nym.toString())
+        console.log("[Issuer] n: ", n.toString())
+        console.log('[Issuer] _C: ', _C.toString())
+        console.log('[Issuer] pi.C: ', pi.C.toString())
+        console.log('[Issuer] pi.S: ', pi.S.toString())
+
+        return BIG.comp(pi.C, _C)==0
+    },
+    Sign(Nym, pi, attrs, n){
+        let v = this.VerifyPi(Nym, pi, n)        // verify pi
+        console.log('verify result',v)
+
+        return
+
+        // e, s
+        let e = getRandBN()
+        let s = getRandBN()
+        let B = new ctx.ECP() // B = g1 · HRand^s · Nym · MulAll(HAttrs[i]^(Attrs[i]))
+        B.copy(g1)
+        B.add(PAIR.G1mul(this.ipk.h0, s))
+        B.add(Nym)
+        for (let i = 0; i < this.ipk.attr.length; i++) {
+            B.add(PAIR.G1mul(this.ipk.h[i], attrs[i]))
+        }
+        let A = new ctx.ECP() // A = B^(1/(e+x))
+        let tmp = new ctx.BIG(0)
+        tmp.add(e)
+        tmp.add(s)
+        tmp.invmod(order)
+        A = PAIR.G1mul(B, tmp)
+
+        let Credential = {
+            A: A,
+            B: B,
+            e: e,
+            s: s,
+            Attrs: attrs,
+        }
+
+        return Credential
+    },
     getIpkBytes(){
 
     },
@@ -174,14 +231,24 @@ let User = {
     Setup(attrName, ipk, n){
         // attrs
         let gsk = getRandBN()                       // gsk
-        let Q = PAIR.G1mul(ipk.h_sk, gsk)        // Q
+        let Nym = PAIR.G1mul(ipk.h_sk, gsk)         // Nym
 
         let r = getRandBN()                         // r
-        let t1 = PAIR.G1mul(ipk.h_sk, r)         // t1
+        let t1 = PAIR.G1mul(ipk.h_sk, r)            // t1
 
-        let C = hashToBN(t1, ipk.h_sk, Q, n)
+        console.log("[User] t1: ", t1.toString())
 
-        let S = ctx.BIG.modmul(C, gsk, order)
+        let C = hashToBN(t1, ipk.h_sk, Nym, n)
+        console.log("[User] t1: ", t1.toString())
+        console.log("[User] ipk.h_sk: ", ipk.h_sk.toString())
+        console.log("[User] Nym: ", Nym.toString())
+        console.log("[User] n: ", n.toString())
+        console.log("[User] C: ", C.toString())
+
+        let tmp = new BIG(0)
+        tmp.copy(C)
+
+        let S = ctx.BIG.mul(tmp, gsk)
         S.add(r)
         S.mod(order)
 
@@ -190,15 +257,14 @@ let User = {
             S: S,
         }
 
+        console.log("A-pi.C: ", pi.C.toString())
+
         let attrs = genAttrElement(attrName)
 
         this.gsk = gsk
-        this.Q = Q
+        this.Nym = Nym
         this.pi = pi
-        this.atts = attrs
-    },
-    SetIpk(ipk){
-        let w = ECP2.fromBytes(ipk.w)
+        this.attrs = attrs
     },
 }
 
@@ -215,15 +281,24 @@ function main(){
     ]
     /* issuer setup */
     Issuer.Setup(AttributeName)
-    console.log(Issuer)
+    // console.log(Issuer)
+    // console.log("publish(ipk)")
+    // publish(ipk)
 
     /* issuer generate a random nonce number */
 
     let n = getRandBN()
-    console.log(n)
+    // console.log(n)
+    // console.log("send(n)")
+    // send(n)
 
     /* user */
 
     User.Setup(AttributeName, Issuer.ipk, n)
-    console.log(User)
+    // console.log(User)
+    // console.log("send(Nym, pi)")
+    // send(Nym, pi)
+    console.log("B-User.pi.C: ", User.pi.C.toString())
+
+    Issuer.Sign(User.Nym, User.pi, User.attrs, n)
 }
