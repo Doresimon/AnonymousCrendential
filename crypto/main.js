@@ -51,21 +51,18 @@ const order = func.get_order(ctx) // n
 
 function getRandBN(){
     const buf = crypto.randomBytes(256);
+    rng.clean();
     rng.seed(256, buf);
     let r = ctx.BIG.randomnum(order, rng);
     return r
 }
 function getRandG1(){
-    const buf = crypto.randomBytes(256);
-    rng.seed(256, buf);
-    let r = ctx.BIG.randomnum(order, rng);
+    let r = getRandBN()
     let g = PAIR.G1mul(g1, r)
     return g
 }
 function getRandG2(){
-    const buf = crypto.randomBytes(256);
-    rng.seed(256, buf);
-    let r = ctx.BIG.randomnum(order, rng);
+    let r = getRandBN()
     let g = PAIR.G1mul(g2, r)
     return g
 }
@@ -81,7 +78,19 @@ function hashToBN(...points){
     H.process_array(all);
     let R = H.hash();
     let C = ctx.BIG.fromBytes(R)
+    C.mod(order)
     return C
+}
+function genAttrBN(attrs){
+    let HAttr = []
+    let r
+
+    for (let i = 0; i < attrs.length; i++) {
+        let t = getRandBN()
+        HAttr[i] = t
+    }
+
+    return HAttr
 }
 function genAttrElement(attrs){
     let HAttr = []
@@ -106,7 +115,7 @@ let Issuer = {
         let _g1 =  PAIR.G1mul(g1, r)
         let _g2 =  PAIR.G1mul(_g1, x)
 
-         // zkp - pi
+        // zkp - pi
         r = getRandBN()
         let t1 = PAIR.G2mul(g2, r)
         let t2 = PAIR.G1mul(_g1, r)
@@ -122,33 +131,12 @@ let Issuer = {
             S: S,
         }
 
-        // rand
         let h0 = getRandG1()
         let h_sk = getRandG1()
 
         let isk = new ctx.BIG()
         isk.copy(x)
 
-        // let ipk = {
-        //     w: new ctx.ECP2(),
-        //     _g1: new ctx.ECP(),
-        //     _g2: new ctx.ECP(),
-        //     attr: AttributeName,
-        //     h: [],
-        //     h0: new ctx.ECP(),
-        //     h_sk: new ctx.ECP(),
-        //     pi: pi,
-        // }
-        // let ipk = {
-        //     w: w.toString(),
-        //     _g1: _g1.toString(),
-        //     _g2: _g2.toString(),
-        //     attr: AttributeName,
-        //     h: [],
-        //     h0: h0.toString(),
-        //     h_sk: h_sk.toString(),
-        //     pi: pi,
-        // }
         let ipk = {
             w: w,
             _g1: _g1,
@@ -170,31 +158,21 @@ let Issuer = {
     VerifyPi(Nym, pi, n){
         let C = new BIG(0)
         C.copy(pi.C)
+
         // let _t1 = h_sk^S * Nym^(-C)
         let _t1 = new ctx.ECP()
         _t1 = PAIR.G1mul(this.ipk.h_sk, pi.S)
         _t1.add(PAIR.G1mul(Nym, BIG.modneg(C, order)))
 
-        console.log("[Issuer] _t1: ", _t1.toString())
-
         let _C = hashToBN(_t1, this.ipk.h_sk, Nym, n)
-
-        console.log("[Issuer] _t1: ", _t1.toString())
-        console.log("[Issuer] this.ipk.h_sk: ", this.ipk.h_sk.toString())
-        console.log("[Issuer] Nym: ", Nym.toString())
-        console.log("[Issuer] n: ", n.toString())
-        console.log('[Issuer] _C: ', _C.toString())
-        console.log('[Issuer] pi.C: ', pi.C.toString())
-        console.log('[Issuer] pi.S: ', pi.S.toString())
 
         return BIG.comp(pi.C, _C)==0
     },
     Sign(Nym, pi, attrs, n){
         let v = this.VerifyPi(Nym, pi, n)        // verify pi
-        console.log('verify result',v)
-
-        return
-
+        console.log('verify result = ',v)
+        if (!v) {   return false }
+        
         // e, s
         let e = getRandBN()
         let s = getRandBN()
@@ -205,26 +183,27 @@ let Issuer = {
         for (let i = 0; i < this.ipk.attr.length; i++) {
             B.add(PAIR.G1mul(this.ipk.h[i], attrs[i]))
         }
+
         let A = new ctx.ECP() // A = B^(1/(e+x))
-        let tmp = new ctx.BIG(0)
-        tmp.add(e)
-        tmp.add(s)
-        tmp.invmod(order)
+        let tmp = new ctx.BIG() //tmp = (1/(e+x))
+        tmp.copy(e)
+        tmp.add(this.isk) // !!!!!!!!!!!
+        tmp.invmodp(order)
+
         A = PAIR.G1mul(B, tmp)
 
         let Credential = {
-            A: A,
-            B: B,
-            e: e,
-            s: s,
+            sig:{
+                A: A,
+                // B: B, 
+                e: e,
+                s: s,
+            },
             Attrs: attrs,
         }
-
         return Credential
     },
-    getIpkBytes(){
-
-    },
+    getIpkBytes(){},
 }
 
 let User = {
@@ -236,19 +215,9 @@ let User = {
         let r = getRandBN()                         // r
         let t1 = PAIR.G1mul(ipk.h_sk, r)            // t1
 
-        console.log("[User] t1: ", t1.toString())
-
         let C = hashToBN(t1, ipk.h_sk, Nym, n)
-        console.log("[User] t1: ", t1.toString())
-        console.log("[User] ipk.h_sk: ", ipk.h_sk.toString())
-        console.log("[User] Nym: ", Nym.toString())
-        console.log("[User] n: ", n.toString())
-        console.log("[User] C: ", C.toString())
 
-        let tmp = new BIG(0)
-        tmp.copy(C)
-
-        let S = ctx.BIG.mul(tmp, gsk)
+        let S = ctx.BIG.modmul(C, gsk, order)
         S.add(r)
         S.mod(order)
 
@@ -257,18 +226,49 @@ let User = {
             S: S,
         }
 
-        console.log("A-pi.C: ", pi.C.toString())
-
-        let attrs = genAttrElement(attrName)
+        let attrs = genAttrBN(attrName)
 
         this.gsk = gsk
         this.Nym = Nym
         this.pi = pi
         this.attrs = attrs
+
+        return
+    },
+    VerifyBBSplus(ipk, m, sig, Nym){
+        // pk   <- ipk.w
+        // m    <- attrs
+        // sig  <- (A,E,s)
+
+        // check if 
+        // e(A, g2^E * pk) == e(B, g2) 
+        // and if 
+        // B == g1 * HRand^s * Nym * (h1^m1 * ... * hL^mL).
+
+        let wg2e = new ECP2()
+        wg2e.copy(ipk.w)
+        wg2e.add(PAIR.G2mul(g2, sig.e))
+        wg2e.affine()                       // ~!!!!use affine() after ECP's mul operation, for pairing.
+        let left = PAIR.ate(wg2e, sig.A)
+        left = PAIR.fexp(left);
+
+        let B = new ECP()
+        B.copy(g1)
+        B.add(PAIR.G1mul(ipk.h0, sig.s))
+        B.add(Nym)
+
+        for (let i = 0; i < m.length; i++) {
+            B.add(PAIR.G1mul(ipk.h[i], m[i]))
+        }
+
+        B.affine()
+        let right = PAIR.ate(g2, B)
+        right = PAIR.fexp(right);
+
+        return left.toString() == right.toString()
     },
 }
 
-// /* setup */
 main()
 
 function main(){
@@ -281,24 +281,19 @@ function main(){
     ]
     /* issuer setup */
     Issuer.Setup(AttributeName)
-    // console.log(Issuer)
-    // console.log("publish(ipk)")
-    // publish(ipk)
+    console.log("Issuer.publish(ipk)")
 
     /* issuer generate a random nonce number */
-
     let n = getRandBN()
-    // console.log(n)
-    // console.log("send(n)")
-    // send(n)
+    console.log("Issuer.send(n)")
 
     /* user */
-
     User.Setup(AttributeName, Issuer.ipk, n)
-    // console.log(User)
-    // console.log("send(Nym, pi)")
-    // send(Nym, pi)
-    console.log("B-User.pi.C: ", User.pi.C.toString())
+    console.log("User.send(Nym, pi)")
+    
+    let Credential = Issuer.Sign(User.Nym, User.pi, User.attrs, n)
+    console.log("Issuer.send(Credential)")
 
-    Issuer.Sign(User.Nym, User.pi, User.attrs, n)
+    let uv = User.VerifyBBSplus(Issuer.ipk, Credential.Attrs, Credential.sig, User.Nym)
+    console.log("User.verify(Credential)", uv)
 }
