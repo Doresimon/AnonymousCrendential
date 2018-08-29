@@ -1,3 +1,4 @@
+"use strict";
 const CTX = require("milagro-crypto-js");
 
 const func = {
@@ -7,7 +8,7 @@ const func = {
         let y = new ctx.BIG(0);
         x.rcopy(ctx.ROM_CURVE.CURVE_Gx);
         y.rcopy(ctx.ROM_CURVE.CURVE_Gy);
-        g1.setxy(x,y);
+        g1.setxy(x, y);
         return g1
     },
     get_g2(ctx) {
@@ -25,7 +26,7 @@ const func = {
         g2.setxy(qx, qy);
         return g2
     },
-    get_order(ctx){
+    get_order(ctx) {
         let r = new ctx.BIG(0);     // new BN
         r.rcopy(ctx.ROM_CURVE.CURVE_Order);
         return r
@@ -45,16 +46,16 @@ const g2 = func.get_g2(ctx)       // g2
 const order = func.get_order(ctx) // n
 
 const Param = {
-    curve:  curve,
-    ctx:    ctx,
-    g1:     g1,
-    g2:     g2,
-    rng:    rng,
-    order:  order,
-    PAIR:   PAIR,
-    ECP:    ECP,
-    ECP2:   ECP2,
-    BIG:    BIG,
+    curve: curve,
+    ctx: ctx,
+    g1: g1,
+    g2: g2,
+    rng: rng,
+    order: order,
+    PAIR: PAIR,
+    ECP: ECP,
+    ECP2: ECP2,
+    BIG: BIG,
 }
 
 module.exports = Param
