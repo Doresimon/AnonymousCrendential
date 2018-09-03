@@ -33,7 +33,8 @@ const func = {
     }
 }
 
-const curve = 'BN254'
+// const curve = 'BN254'
+const curve = 'FP256BN'
 const ctx = new CTX(curve);   // set curve
 const PAIR = ctx.PAIR;        // Set pairing interface
 const ECP = ctx.ECP;        // Set pairing interface

@@ -7,17 +7,17 @@ function Issuer() {
     let ipk;
     let AttributeName;
 
-	/* 
-	  Setup() generates 
-		  isk: issuer's secret key
-		  ipk: issuer's public key
-			  ipk.w
-			  ipk._g1
-			  ipk._g2
-			  ipk.pi
-				  C
-				  S 
-	  */
+    /* 
+        Setup() generates 
+            isk: issuer's secret key
+            ipk: issuer's public key
+                ipk.w
+                ipk._g1
+                ipk._g2
+                ipk.pi
+                    C
+                    S 
+        */
     this.Setup = function () {
         let x = UTIL.getRandBN(); // isk
         let w = PARAM.PAIR.G2mul(PARAM.g2, x); // w
@@ -53,12 +53,12 @@ function Issuer() {
         ipk = pk;
     };
 
-	/* 
-	  SetAttr(AttributeName) generates 
-		  ipk.h0: rand G1
-		  ipk.h_sk: rand G1
-		  ipk.h[]: Rand G1 array, match to AttributeName
-	  */
+    /* 
+        SetAttr(AttributeName) generates 
+            ipk.h0: rand G1
+            ipk.h_sk: rand G1
+            ipk.h[]: Rand G1 array, match to AttributeName
+        */
     this.SetAttr = function (AttributeName) {
         let HAttr = UTIL.genAttrElement(AttributeName);
         let h0 = UTIL.getRandG1();
@@ -75,9 +75,9 @@ function Issuer() {
         ipk.attr = AttributeName;
     };
 
-	/* 
-	  VerifyCredentialRequest(Nym, pi, n) verifies user's credential request
-	  */
+    /* 
+        VerifyCredentialRequest(Nym, pi, n) verifies user's credential request
+        */
     this.VerifyCredentialRequest = function (Nym, pi, n) {
         let C = new PARAM.BIG(0);
         C.copy(pi.C);
@@ -92,9 +92,9 @@ function Issuer() {
         return PARAM.BIG.comp(pi.C, _C) == 0;
     };
 
-	/* 
-		sign a credential for a user
-		*/
+    /* 
+        sign a credential for a user
+        */
     this.Sign = function (Nym, attrs) {
         // e, s
         let e = UTIL.getRandBN();
@@ -127,9 +127,9 @@ function Issuer() {
         return Credential;
     };
 
-	/* 
-		get issuer's public key
-		  */
+    /* 
+        get issuer's public key
+        */
     this.Ipk = function () {
         let pk = {};
         pk.w = new PARAM.ECP2();

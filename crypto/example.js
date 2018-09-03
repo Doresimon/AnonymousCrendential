@@ -16,55 +16,60 @@ function main() {
 
     /* issuer setup */
     I.Setup();
-    I.SetAttr(AttributeName);
     console.log("I.Setup()");
+    I.SetAttr(AttributeName);
     console.log("I.SetAttr(AttributeName)");
 
     let ipk = I.Ipk();
+    console.log("I.Publish(I.ipk)");
+
     U.SetIpk(ipk);
+    console.log("U.SetIpk(I.ipk)");
     U.GenerateSk();
-    console.log("U.SetIpk(Issuer.ipk)");
     console.log("U.GenerateSk()");
 
     /* issuer generate a random nonce number */
-    let n = UTIL.getRandBN();
-    console.log("Issuer.send(n)");
+    let nonce = UTIL.getRandBN();
+    console.log("Issuer.send(nonce)");
 
     /* user */
-    U.GenerateCrendentialRequest(n);
+    U.GenerateCrendentialRequest(nonce);
     console.log("U.GenerateCrendentialRequest(nonce)");
 
-    let v = I.VerifyCredentialRequest(U.Nym, U.pi, n); // verify pi
-    console.log("I.VerifyCredentialRequest(Nym, pi, n)");
+    let v = I.VerifyCredentialRequest(U.Nym, U.pi, nonce); // verify pi
+    console.log("I.VerifyCredentialRequest(U.Nym, U.pi, nonce)");
     console.log(v);
     if (!v) {
         return false;
     }
 
     let Credential = I.Sign(U.Nym, U.attrs);
-    console.log("Issuer.send(Credential)");
+    console.log("I.send(Credential)");
 
     let uv = U.VerifyBBSplus(U.ipk, Credential.attrs, Credential.sig, U.Nym);
-    console.log("U.VerifyBBSplus(Credential)");
+    console.log("U.VerifyBBSplus(Credential), or call it verify issuer's reality");
     console.log(uv);
 
     U.SetCredential(Credential);
     console.log("U.SetCredential(Credential)");
 
     /* 
-       * @inputs 
+       * @inputs
               D: Disclosure of attributes.
               Nonce: a non-sense string for fresh.
-       * @output    
+       * @output
        */
     let proof = U.Prove(Disclosure);
-    console.log("User.prove(Credential)");
+    console.log("U.prove(Credential)");
+
+    /* U ---> V */
+    console.log("U.send(proof)");
 
     V.SetIpk(ipk);
-    console.log("V.SetIpk(Issuer.ipk)");
+    console.log("V.SetIpk(I.ipk)");
 
     let r = V.Verify(proof, Disclosure, U.attrs);
-    console.log("V.Verify(proof, Disclosure, attrs)");
+    console.log("V.Verify(U.proof, U.Disclosure, U.attrs)");
     console.log(r);
 
     console.log("BINGO~");
